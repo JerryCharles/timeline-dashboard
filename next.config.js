@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configure asset prefix for CDN only in production
-  assetPrefix: process.env.NODE_ENV === 'production' ? process.env.NEXT_PUBLIC_CDN_URL : '',
+  // Configure asset prefix for CDN only if URL is provided
+  // assetPrefix: process.env.NEXT_PUBLIC_CDN_URL || '',
   // Image optimization settings
   images: {
     unoptimized: true,
@@ -9,7 +9,7 @@ const nextConfig = {
   },
   // Production optimizations
   reactStrictMode: true,
-  // Disable static exports since we need server functionality
+  // Use standalone output for better deployment compatibility
   output: 'standalone',
 };
 
