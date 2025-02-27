@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from 'wagmi';
 import { useSignMessage } from 'wagmi';
@@ -9,6 +9,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { use } from 'react';
 import dynamic from 'next/dynamic';
 import MarkdownIt from 'markdown-it';
+import EventForm from './EventForm';
 
 // Make the entire component client-side only
 const MdEditor = dynamic(() => import('react-markdown-editor-lite'), {
@@ -73,6 +74,111 @@ const formatDate = (timestamp) => {
   }
 };
 
+// Add this debounce utility function at the top level
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Memoized EventTable component
+const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
+  return (
+    <div className="w-full overflow-x-auto rounded-lg shadow">
+      <table className="w-full text-sm text-left">
+        <thead className="text-xs bg-gray-100 dark:bg-gray-700">
+          <tr>
+            <th scope="col" className="px-6 py-3">Time</th>
+            <th scope="col" className="px-6 py-3">Content</th>
+            <th scope="col" className="px-6 py-3">Labels</th>
+            <th scope="col" className="px-6 py-3">Source</th>
+            <th scope="col" className="px-6 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((event) => (
+            <tr key={event.eventID} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td className="px-6 py-4 whitespace-nowrap">
+                {formatDate(event.time)}
+              </td>
+              <td className="px-6 py-4">
+                <div>
+                  <div 
+                    className="text-gray-900 dark:text-white line-clamp-2 markdown-content"
+                    dangerouslySetInnerHTML={{ __html: mdParser.render(event.content) }}
+                  />
+                  <br/>
+                  <div 
+                    className="text-gray-500 text-sm line-clamp-2 markdown-content"
+                    dangerouslySetInnerHTML={{ __html: mdParser.render(event.contentCN) }}
+                  />
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="flex flex-wrap gap-2">
+                  {event.labels && event.labels.map((label, index) => (
+                    <div key={index} className="flex flex-col items-center">
+                      <span className="px-2 py-1 text-xs rounded-t-lg bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border-b border-blue-200">
+                        {label}
+                      </span>
+                      <span className="px-2 py-1 text-xs rounded-b-lg bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-200">
+                        {event.labelsCN[index]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                {event.url && (
+                  <a
+                    href={event.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                  >
+                    <span>Source</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                  </a>
+                )}
+              </td>
+              <td className="px-6 py-4">
+                <div className="flex gap-2">
+                  <button 
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-full dark:text-red-400 dark:hover:bg-red-900/20"
+                    title="Delete"
+                    onClick={() => onDelete(event)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
+                  <button 
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-full dark:text-blue-400 dark:hover:bg-blue-900/20"
+                    title="Edit"
+                    onClick={() => onEdit(event)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+});
+
 export default function EventsPage({ params }) {
   const router = useRouter();
   const { isConnected, address } = useAccount();
@@ -103,6 +209,14 @@ export default function EventsPage({ params }) {
     time: '',
     type: 0
   });
+
+  // Debounced form update
+  const debouncedFormUpdate = useCallback(
+    debounce((newFormData) => {
+      setFormData(newFormData);
+    }, 300),
+    []
+  );
 
   useEffect(() => {
     if (!isConnected) {
@@ -366,12 +480,12 @@ export default function EventsPage({ params }) {
     }
   };
 
-  const handleDeleteClick = (event) => {
+  const handleDeleteClick = useCallback((event) => {
     setEventToDelete(event);
     setShowDeleteAlert(true);
-  };
+  }, []);
 
-  const handleEditClick = (event) => {
+  const handleEditClick = useCallback((event) => {
     setEditingEvent(event);
     setFormData({
       content: event.content,
@@ -385,7 +499,7 @@ export default function EventsPage({ params }) {
       type: event.type || 0
     });
     setIsEditEventOpen(true);
-  };
+  }, []);
 
   const handleAddLabel = () => {
     if (formData.newLabel && formData.newLabelCN) {
@@ -429,96 +543,6 @@ export default function EventsPage({ params }) {
       return null;
     }
   };
-
-  // Wrap the table in a client-side only component
-  const EventsTable = dynamic(() => Promise.resolve(({ events }) => (
-    <div className="w-full overflow-x-auto rounded-lg shadow">
-      <table className="w-full text-sm text-left">
-        <thead className="text-xs bg-gray-100 dark:bg-gray-700">
-          <tr>
-            <th scope="col" className="px-6 py-3">Time</th>
-            <th scope="col" className="px-6 py-3">Content</th>
-            <th scope="col" className="px-6 py-3">Labels</th>
-            <th scope="col" className="px-6 py-3">Source</th>
-            <th scope="col" className="px-6 py-3">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event) => (
-            <tr key={event.eventID} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td className="px-6 py-4 whitespace-nowrap">
-                {formatDate(event.time)}
-              </td>
-              <td className="px-6 py-4">
-                <div>
-                  <div 
-                    className="text-gray-900 dark:text-white line-clamp-2 markdown-content"
-                    dangerouslySetInnerHTML={{ __html: mdParser.render(event.content) }}
-                  />
-                  <br/>
-                  <div 
-                    className="text-gray-500 text-sm line-clamp-2 markdown-content"
-                    dangerouslySetInnerHTML={{ __html: mdParser.render(event.contentCN) }}
-                  />
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex flex-wrap gap-2">
-                  {event.labels && event.labels.map((label, index) => (
-                    <div key={index} className="flex flex-col items-center">
-                      <span className="px-2 py-1 text-xs rounded-t-lg bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border-b border-blue-200">
-                        {label}
-                      </span>
-                      <span className="px-2 py-1 text-xs rounded-b-lg bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-200">
-                        {event.labelsCN[index]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                {event.url && (
-                  <a
-                    href={event.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
-                  >
-                    <span>Source</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                    </svg>
-                  </a>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex gap-2">
-                  <button 
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-full dark:text-red-400 dark:hover:bg-red-900/20"
-                    title="Delete"
-                    onClick={() => handleDeleteClick(event)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                    </svg>
-                  </button>
-                  <button 
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-full dark:text-blue-400 dark:hover:bg-blue-900/20"
-                    title="Edit"
-                    onClick={() => handleEditClick(event)}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )), { ssr: false });
 
   if (!isConnected) {
     return null;
@@ -636,7 +660,11 @@ export default function EventsPage({ params }) {
           </div>
         </div>
 
-        <EventsTable events={events} />
+        <EventTable 
+          events={events} 
+          onEdit={handleEditClick} 
+          onDelete={handleDeleteClick} 
+        />
       </main>
 
       {/* Add/Edit Event Modal */}
@@ -647,219 +675,28 @@ export default function EventsPage({ params }) {
               <h2 className="text-xl font-semibold mb-6 text-center text-gray-900 dark:text-white">
                 {isEditEventOpen ? 'Edit Event' : 'Add New Event'}
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Event Type <span className="text-red-500">*</span></label>
-                  {isEditEventOpen ? (
-                    <div className="px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-700 dark:text-gray-300">
-                      {formData.type === 0 ? 'Event' : 'Note'}
-                    </div>
-                  ) : (
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="eventType"
-                          value={0}
-                          checked={formData.type === 0}
-                          onChange={(e) => setFormData({...formData, type: Number(e.target.value)})}
-                          className="mr-2"
-                        />
-                        Event
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          name="eventType"
-                          value={1}
-                          checked={formData.type === 1}
-                          onChange={(e) => setFormData({...formData, type: Number(e.target.value)})}
-                          className="mr-2"
-                        />
-                        Note
-                      </label>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Time <span className="text-red-500">*</span></label>
-                  {isEditEventOpen ? (
-                    <div className="px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-700 dark:text-gray-300">
-                      {new Date(editingEvent.time * 1000).toLocaleString()}
-                    </div>
-                  ) : (
-                    <input
-                      type="datetime-local"
-                      value={formData.time}
-                      onChange={(e) => {
-                        setFormData({...formData, time: e.target.value});
-                        setFormErrors({...formErrors, time: ''});
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                        formErrors.time ? 'border-red-500' : ''
-                      }`}
-                      required
-                    />
-                  )}
-                  {formErrors.time && !isEditEventOpen && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.time}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Content (English)</label>
-                  <div className="markdown-editor-container dark:bg-gray-800">
-                    <MdEditor
-                      value={formData.content}
-                      onChange={({ text }) => {
-                        setFormData({...formData, content: text});
-                        setFormErrors({...formErrors, content: ''});
-                      }}
-                      renderHTML={renderHTML}
-                      className={`${formErrors.content ? 'border-red-500' : ''}`}
-                      style={{ height: '300px' }}
-                      {...EDITOR_CONFIG}
-                    />
-                  </div>
-                  {formErrors.content && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.content}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Content (Chinese)</label>
-                  <div className="markdown-editor-container dark:bg-gray-800">
-                    <MdEditor
-                      value={formData.contentCN}
-                      onChange={({ text }) => {
-                        setFormData({...formData, contentCN: text});
-                        setFormErrors({...formErrors, contentCN: ''});
-                      }}
-                      renderHTML={renderHTML}
-                      className={`${formErrors.contentCN ? 'border-red-500' : ''}`}
-                      style={{ height: '300px' }}
-                      {...EDITOR_CONFIG}
-                    />
-                  </div>
-                  {formErrors.contentCN && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.contentCN}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Source URL</label>
-                  <input
-                    type="url"
-                    value={formData.url}
-                    onChange={(e) => {
-                      setFormData({...formData, url: e.target.value});
-                      setFormErrors({...formErrors, url: ''});
-                    }}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                      formErrors.url ? 'border-red-500' : ''
-                    }`}
-                  />
-                  {formErrors.url && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.url}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Labels</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.labels.map((label, index) => (
-                      <div key={index} className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1">
-                        <div className="flex flex-col">
-                          <span className="text-blue-800 dark:text-blue-300">{label}</span>
-                          <span className="text-blue-600 dark:text-blue-200 text-xs">{formData.labelsCN[index]}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLabel(index)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formData.newLabel}
-                      onChange={(e) => {
-                        setFormData({...formData, newLabel: e.target.value});
-                        setFormErrors({...formErrors, labels: ''});
-                      }}
-                      placeholder="Label (English)"
-                      className={`flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                        formErrors.labels ? 'border-red-500' : ''
-                      }`}
-                    />
-                    <input
-                      type="text"
-                      value={formData.newLabelCN}
-                      onChange={(e) => {
-                        setFormData({...formData, newLabelCN: e.target.value});
-                        setFormErrors({...formErrors, labels: ''});
-                      }}
-                      placeholder="Label (Chinese)"
-                      className={`flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                        formErrors.labels ? 'border-red-500' : ''
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddLabel}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                    >
-                      Add
-                    </button>
-                  </div>
-                  {formErrors.labels && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.labels}</p>
-                  )}
-                </div>
-                <div className="flex justify-center gap-2 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddEventOpen(false);
-                      setIsEditEventOpen(false);
-                      setEditingEvent(null);
-                      setFormData({
-                        content: '',
-                        contentCN: '',
-                        url: '',
-                        labels: [],
-                        labelsCN: [],
-                        newLabel: '',
-                        newLabelCN: '',
-                        time: '',
-                        type: 0
-                      });
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 ${
-                      isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>{isEditEventOpen ? 'Saving...' : 'Creating...'}</span>
-                      </>
-                    ) : (
-                      <span>{isEditEventOpen ? 'Save Changes' : 'Create Event'}</span>
-                    )}
-                  </button>
-                </div>
-              </form>
+              <EventForm
+                initialData={formData}
+                isEditMode={isEditEventOpen}
+                onSubmit={handleSubmit}
+                onCancel={() => {
+                  setIsAddEventOpen(false);
+                  setIsEditEventOpen(false);
+                  setEditingEvent(null);
+                  setFormData({
+                    content: '',
+                    contentCN: '',
+                    url: '',
+                    labels: [],
+                    labelsCN: [],
+                    newLabel: '',
+                    newLabelCN: '',
+                    time: '',
+                    type: 0
+                  });
+                }}
+                isSubmitting={isSubmitting}
+              />
             </div>
           </div>
         </div>
