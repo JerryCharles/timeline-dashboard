@@ -242,6 +242,19 @@ export default function EventsPage({ params }) {
     []
   );
 
+  const hasEventChanged = useCallback((currentFormData) => {
+    if (!editingEvent) return true;
+    
+    return (
+      currentFormData.content !== editingEvent.content ||
+      currentFormData.contentCN !== editingEvent.contentCN ||
+      currentFormData.url !== editingEvent.url ||
+      currentFormData.time !== new Date(editingEvent.time * 1000).toISOString().slice(0, 16) ||
+      JSON.stringify(currentFormData.labels) !== JSON.stringify(editingEvent.labels) ||
+      JSON.stringify(currentFormData.labelsCN) !== JSON.stringify(editingEvent.labelsCN)
+    );
+  }, [editingEvent]);
+
   const handleDeleteClick = useCallback((event) => {
     setEventToDelete(event);
     setShowDeleteAlert(true);
@@ -366,20 +379,8 @@ export default function EventsPage({ params }) {
     }
   };
 
-  const hasEventChanged = () => {
-    if (!editingEvent) return true;
-    
-    return (
-      formData.content !== editingEvent.content ||
-      formData.contentCN !== editingEvent.contentCN ||
-      formData.url !== editingEvent.url ||
-      JSON.stringify(formData.labels) !== JSON.stringify(editingEvent.labels) ||
-      JSON.stringify(formData.labelsCN) !== JSON.stringify(editingEvent.labelsCN)
-    );
-  };
-
-  const handleSubmit = async (formData) => {
-    if (editingEvent && !hasEventChanged()) {
+  const handleSubmit = async (submittedFormData) => {
+    if (editingEvent && !hasEventChanged(submittedFormData)) {
       showNotification('No changes detected', 'error');
       return;
     }
@@ -390,12 +391,12 @@ export default function EventsPage({ params }) {
     try {
       if (editingEvent) {
         const changedFields = {};
-        if (formData.content !== editingEvent.content) changedFields.content = formData.content;
-        if (formData.contentCN !== editingEvent.contentCN) changedFields.contentCN = formData.contentCN;
-        if (formData.url !== editingEvent.url) changedFields.url = formData.url;
-        if (JSON.stringify(formData.labels) !== JSON.stringify(editingEvent.labels)) {
-          changedFields.labels = formData.labels;
-          changedFields.labelsCN = formData.labelsCN;
+        if (submittedFormData.content !== editingEvent.content) changedFields.content = submittedFormData.content;
+        if (submittedFormData.contentCN !== editingEvent.contentCN) changedFields.contentCN = submittedFormData.contentCN;
+        if (submittedFormData.url !== editingEvent.url) changedFields.url = submittedFormData.url;
+        if (JSON.stringify(submittedFormData.labels) !== JSON.stringify(editingEvent.labels)) {
+          changedFields.labels = submittedFormData.labels;
+          changedFields.labelsCN = submittedFormData.labelsCN;
         }
 
         // Get current timestamp
@@ -468,14 +469,14 @@ export default function EventsPage({ params }) {
             timestamp: message,
             signature: signature,
             paramInfo: {
-              content: formData.content,
-              contentCN: formData.contentCN,
-              url: formData.url,
-              labels: formData.labels,
-              labelsCN: formData.labelsCN,
+              content: submittedFormData.content,
+              contentCN: submittedFormData.contentCN,
+              url: submittedFormData.url,
+              labels: submittedFormData.labels,
+              labelsCN: submittedFormData.labelsCN,
               topicID: parseInt(topicId),
-              time: Math.floor(new Date(formData.time).getTime() / 1000),
-              type: formData.type
+              time: Math.floor(new Date(submittedFormData.time).getTime() / 1000),
+              type: submittedFormData.type
             }
           }),
         });
