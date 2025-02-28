@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import dynamic from 'next/dynamic';
 import MarkdownIt from 'markdown-it';
 
@@ -61,6 +61,22 @@ function debounce(func, wait) {
   };
 }
 
+// Add FormattedDate component
+const FormattedDate = memo(({ timestamp }) => {
+  const [formattedDate, setFormattedDate] = useState('');
+
+  useEffect(() => {
+    try {
+      const date = new Date(timestamp * 1000).toLocaleString();
+      setFormattedDate(date);
+    } catch (error) {
+      setFormattedDate('');
+    }
+  }, [timestamp]);
+
+  return <span>{formattedDate}</span>;
+});
+
 export default function EventForm({ 
   initialData, 
   isEditMode, 
@@ -68,7 +84,24 @@ export default function EventForm({
   onCancel, 
   isSubmitting 
 }) {
-  const [formData, setFormData] = useState(initialData);
+  // Initialize form data with empty values and update in useEffect
+  const [formData, setFormData] = useState({
+    content: '',
+    contentCN: '',
+    url: '',
+    labels: [],
+    labelsCN: [],
+    newLabel: '',
+    newLabelCN: '',
+    time: '',
+    type: 0
+  });
+
+  // Update form data when initialData changes
+  useEffect(() => {
+    setFormData(initialData);
+  }, [initialData]);
+
   const [formErrors, setFormErrors] = useState({});
 
   // Debounced update only for non-editor fields
@@ -197,7 +230,7 @@ export default function EventForm({
         <label className="block text-sm font-medium mb-1">Time <span className="text-red-500">*</span></label>
         {isEditMode ? (
           <div className="px-3 py-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-700 dark:text-gray-300">
-            {new Date(formData.time * 1000).toLocaleString()}
+            <FormattedDate timestamp={Math.floor(new Date(formData.time).getTime() / 1000)} />
           </div>
         ) : (
           <input

@@ -32,6 +32,19 @@ function renderHTML(text) {
   return mdParser.render(text);
 }
 
+// Debounce utility function
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 // Editor configuration
 const EDITOR_CONFIG = {
   view: { 
@@ -57,35 +70,43 @@ const EDITOR_CONFIG = {
   language: 'en-US'
 };
 
-// Format date consistently
-const formatDate = (timestamp) => {
-  try {
-    return new Date(timestamp * 1000).toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  } catch (error) {
-    return '';
-  }
-};
+// Move formatDate to a client component
+const FormattedDate = memo(({ timestamp }) => {
+  const [formattedDate, setFormattedDate] = useState('');
+  const [mounted, setMounted] = useState(false);
 
-// Add this debounce utility function at the top level
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!timestamp || !mounted) return;
+    try {
+      const date = new Date(timestamp * 1000);
+      // Use a consistent date format that won't change with locale
+      const formatted = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: 'UTC'
+      }).format(date);
+      setFormattedDate(formatted);
+    } catch (error) {
+      setFormattedDate('');
+    }
+  }, [timestamp, mounted]);
+
+  // Return empty span during SSR or before mount
+  if (!mounted) {
+    return <span></span>;
+  }
+
+  return <span>{formattedDate}</span>;
+});
 
 // Memoized EventTable component
 const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
@@ -105,7 +126,7 @@ const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
           {events.map((event) => (
             <tr key={event.eventID} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
               <td className="px-6 py-4 whitespace-nowrap">
-                {formatDate(event.time)}
+                <FormattedDate timestamp={event.time} />
               </td>
               <td className="px-6 py-4">
                 <div>
@@ -185,6 +206,9 @@ export default function EventsPage({ params }) {
   const resolvedParams = use(params);
   const topicId = resolvedParams.topicId;
   const { signMessageAsync } = useSignMessage();
+  
+  // Initialize all state hooks at the top
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [topic, setTopic] = useState(null);
@@ -210,7 +234,7 @@ export default function EventsPage({ params }) {
     type: 0
   });
 
-  // Debounced form update
+  // Define all callbacks before effects
   const debouncedFormUpdate = useCallback(
     debounce((newFormData) => {
       setFormData(newFormData);
@@ -218,16 +242,108 @@ export default function EventsPage({ params }) {
     []
   );
 
+  const handleDeleteClick = useCallback((event) => {
+    setEventToDelete(event);
+    setShowDeleteAlert(true);
+  }, []);
+
+  const handleEditClick = useCallback((event) => {
+    setEditingEvent(event);
+    const eventDate = new Date(event.time * 1000);
+    setFormData({
+      content: event.content,
+      contentCN: event.contentCN,
+      url: event.url || '',
+      labels: event.labels || [],
+      labelsCN: event.labelsCN || [],
+      newLabel: '',
+      newLabelCN: '',
+      time: eventDate.toISOString().slice(0, 16),
+      type: event.type || 0
+    });
+    setIsEditEventOpen(true);
+  }, []);
+
+  const showNotification = useCallback((message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  }, []);
+
+  const signMessage = useCallback(async (message) => {
+    if (!isConnected) {
+      showNotification('Please connect your wallet first', 'error');
+      return null;
+    }
+    
+    try {
+      console.log('Signing message:', message);
+      const signature = await signMessageAsync({ message });
+      console.log('Signature received:', signature);
+      return signature;
+    } catch (error) {
+      console.log('Error code:', error.code);
+      if(error.code === 4001){
+        showNotification('Message signing was rejected by user', 'error');
+      } else {
+        showNotification('Failed to sign message: ' + error.message, 'error');
+      }
+      return null;
+    }
+  }, [isConnected, signMessageAsync, showNotification]);
+
+  // Define all effects
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!isConnected) {
       router.push('/');
     }
   }, [isConnected, router]);
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  useEffect(() => {
+    if (isConnected) {
+      fetchEvents();
+    }
+  }, [isConnected, topicId]);
+
+  // Define all other functions after hooks
+  const fetchEvents = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          methodName: "getEventInfos",
+          paramInfo: {
+            topicID: parseInt(topicId),
+            page: 0,
+            pageSize: 200
+          }
+        })
+      });
+      const data = await response.json();
+      if (data.code === 0) {
+        setTopic(data.data.topic);
+        setEvents(data.data.events);
+      } else {
+        setError(data.msg);
+      }
+    } catch (err) {
+      setError('Failed to fetch events');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Return early if not mounted
+  if (!mounted) {
+    return null;
+  }
 
   const validateForm = () => {
     const errors = {};
@@ -262,95 +378,7 @@ export default function EventsPage({ params }) {
     );
   };
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          methodName: "getEventInfos",
-          paramInfo: {
-            topicID: parseInt(topicId),
-            page: 0,
-            pageSize: 200
-          }
-        })
-      });
-      const data = await response.json();
-      if (data.code === 0) {
-        setTopic(data.data.topic);
-        setEvents(data.data.events);
-      } else {
-        setError(data.msg);
-      }
-    } catch (err) {
-      setError('Failed to fetch events');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchEvents();
-  }, [topicId]);
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      // Get current timestamp
-      const message = (Date.now() + 8000).toString();
-      
-      // Get signature
-      const signature = await signMessage(message);
-      if (!signature) {
-        setIsDeleting(false);
-        return;
-      }
-
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          methodName: "markToDeleteEvent",
-          timestamp: message,
-          signature: signature,
-          paramInfo: {
-            eventID: eventToDelete.eventID
-          }
-        }),
-      });
-      const data = await response.json();
-      if (data.code === 0) {
-        showNotification('Event deleted successfully');
-        await fetchEvents();
-      } else {
-        showNotification(data.msg || 'Failed to delete event', 'error');
-        setError(data.msg);
-      }
-    } catch (err) {
-      showNotification('Failed to delete event', 'error');
-      setError('Failed to delete event');
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteAlert(false);
-      setEventToDelete(null);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
+  const handleSubmit = async (formData) => {
     if (editingEvent && !hasEventChanged()) {
       showNotification('No changes detected', 'error');
       return;
@@ -480,27 +508,6 @@ export default function EventsPage({ params }) {
     }
   };
 
-  const handleDeleteClick = useCallback((event) => {
-    setEventToDelete(event);
-    setShowDeleteAlert(true);
-  }, []);
-
-  const handleEditClick = useCallback((event) => {
-    setEditingEvent(event);
-    setFormData({
-      content: event.content,
-      contentCN: event.contentCN,
-      url: event.url || '',
-      labels: event.labels || [],
-      labelsCN: event.labelsCN || [],
-      newLabel: '',
-      newLabelCN: '',
-      time: new Date(event.time * 1000).toISOString().slice(0, 16),
-      type: event.type || 0
-    });
-    setIsEditEventOpen(true);
-  }, []);
-
   const handleAddLabel = () => {
     if (formData.newLabel && formData.newLabelCN) {
       setFormData({
@@ -521,32 +528,50 @@ export default function EventsPage({ params }) {
     });
   };
 
-  const signMessage = async (message) => {
-    if (!isConnected) {
-      showNotification('Please connect your wallet first', 'error');
-      return null;
-    }
-    
+  const handleDelete = async () => {
+    setIsDeleting(true);
     try {
-      console.log('Signing message:', message);
-      const signature = await signMessageAsync({ message });
-      console.log('Signature received:', signature);
-      return signature;
-    } catch (error) {
-      console.log('Error code:', error.code);
-      //if (error.name === 'UserRejectedRequestError' || error.message.includes('User rejected')) {
-      if(error.code === 4001){
-        showNotification('Message signing was rejected by user', 'error');
-      } else {
-        showNotification('Failed to sign message: ' + error.message, 'error');
+      // Get current timestamp
+      const message = (Date.now() + 8000).toString();
+      
+      // Get signature
+      const signature = await signMessage(message);
+      if (!signature) {
+        setIsDeleting(false);
+        return;
       }
-      return null;
+
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          methodName: "markToDeleteEvent",
+          timestamp: message,
+          signature: signature,
+          paramInfo: {
+            eventID: eventToDelete.eventID
+          }
+        }),
+      });
+      const data = await response.json();
+      if (data.code === 0) {
+        showNotification('Event deleted successfully');
+        await fetchEvents();
+      } else {
+        showNotification(data.msg || 'Failed to delete event', 'error');
+        setError(data.msg);
+      }
+    } catch (err) {
+      showNotification('Failed to delete event', 'error');
+      setError('Failed to delete event');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteAlert(false);
+      setEventToDelete(null);
     }
   };
-
-  if (!isConnected) {
-    return null;
-  }
 
   if (loading) {
     return (
