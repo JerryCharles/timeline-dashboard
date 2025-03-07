@@ -12,11 +12,12 @@ import MarkdownIt from 'markdown-it';
 import EventForm from './EventForm';
 
 // Make the entire component client-side only
-const MdEditor = dynamic(() => import('react-markdown-editor-lite'), {
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), {
   ssr: false
 });
 
-import 'react-markdown-editor-lite/lib/index.css';
+import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
 
 const API_URL = 'https://timeline-833534357674.us-central1.run.app';
 
@@ -47,27 +48,14 @@ function debounce(func, wait) {
 
 // Editor configuration
 const EDITOR_CONFIG = {
-  view: { 
-    menu: true, 
-    md: true, 
-    html: true 
-  },
-  canView: {
-    menu: true,
-    md: true,
-    html: true,
-    fullScreen: true,
-    hideMenu: true,
-  },
-  table: {
-    maxRow: 5,
-    maxCol: 6,
-  },
-  syncScrollMode: ['leftFollowRight', 'rightFollowLeft'],
-  imageAccept: '.jpg,.jpeg,.png,.gif',
-  htmlClass: 'markdown-body',
-  markdownClass: 'markdown-body',
-  language: 'en-US'
+  preview: 'live',
+  height: 300,
+  visibleDragbar: false,
+  hideToolbar: false,
+  enableScroll: true,
+  textareaProps: {
+    placeholder: 'Enter markdown content...'
+  }
 };
 
 // Move formatDate to a client component
@@ -393,7 +381,7 @@ export default function EventsPage({ params }) {
         const changedFields = {};
         if (submittedFormData.content !== editingEvent.content) changedFields.content = submittedFormData.content;
         if (submittedFormData.contentCN !== editingEvent.contentCN) changedFields.contentCN = submittedFormData.contentCN;
-        if (submittedFormData.url !== editingEvent.url) changedFields.url = submittedFormData.url;
+        changedFields.url = submittedFormData.url || '';
         if (JSON.stringify(submittedFormData.labels) !== JSON.stringify(editingEvent.labels)) {
           changedFields.labels = submittedFormData.labels;
           changedFields.labelsCN = submittedFormData.labelsCN;
@@ -471,7 +459,7 @@ export default function EventsPage({ params }) {
             paramInfo: {
               content: submittedFormData.content,
               contentCN: submittedFormData.contentCN,
-              url: submittedFormData.url,
+              url: submittedFormData.url || '',
               labels: submittedFormData.labels,
               labelsCN: submittedFormData.labelsCN,
               topicID: parseInt(topicId),

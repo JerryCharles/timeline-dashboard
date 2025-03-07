@@ -5,11 +5,12 @@ import dynamic from 'next/dynamic';
 import MarkdownIt from 'markdown-it';
 
 // Make the editor client-side only
-const MdEditor = dynamic(() => import('react-markdown-editor-lite'), {
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), {
   ssr: false
 });
 
-import 'react-markdown-editor-lite/lib/index.css';
+import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({
@@ -25,27 +26,14 @@ function renderHTML(text) {
 
 // Editor configuration
 const EDITOR_CONFIG = {
-  view: { 
-    menu: true, 
-    md: true, 
-    html: true 
-  },
-  canView: {
-    menu: true,
-    md: true,
-    html: true,
-    fullScreen: true,
-    hideMenu: true,
-  },
-  table: {
-    maxRow: 5,
-    maxCol: 6,
-  },
-  syncScrollMode: ['leftFollowRight', 'rightFollowLeft'],
-  imageAccept: '.jpg,.jpeg,.png,.gif',
-  htmlClass: 'markdown-body',
-  markdownClass: 'markdown-body',
-  language: 'en-US'
+  preview: 'live',
+  height: 300,
+  visibleDragbar: false,
+  hideToolbar: false,
+  enableScroll: true,
+  textareaProps: {
+    placeholder: 'Enter markdown content...'
+  }
 };
 
 // Debounce utility function
@@ -140,7 +128,7 @@ export default function EventForm({
     const errors = {};
     if (!formData.content.trim()) errors.content = 'Content (English) is required';
     if (!formData.contentCN.trim()) errors.contentCN = 'Content (Chinese) is required';
-    if (formData.url && !isValidUrl(formData.url)) errors.url = 'Invalid URL format';
+    if (formData.url && !isValidUrl(formData.url)) errors.url = 'Invalid URL format (leave empty if no URL)';
     if (!formData.time) errors.time = 'Time is required';
     if (formData.newLabel || formData.newLabelCN) {
       errors.labels = 'Please add or clear the label fields before submitting';
@@ -251,14 +239,12 @@ export default function EventForm({
       {/* Content fields */}
       <div>
         <label className="block text-sm font-medium mb-1">Content (English)</label>
-        <div className="markdown-editor-container dark:bg-gray-800">
-          <MdEditor
+        <div className="markdown-editor-container dark:bg-gray-800" data-color-mode="light">
+          <MDEditor
             value={formData.content}
-            onChange={({ text }) => handleEditorChange('content', text)}
-            renderHTML={renderHTML}
-            className={`${formErrors.content ? 'border-red-500' : ''}`}
-            style={{ height: '300px' }}
+            onChange={(text) => handleEditorChange('content', text || '')}
             {...EDITOR_CONFIG}
+            className={`${formErrors.content ? 'border-red-500' : ''}`}
           />
         </div>
         {formErrors.content && (
@@ -268,14 +254,12 @@ export default function EventForm({
 
       <div>
         <label className="block text-sm font-medium mb-1">Content (Chinese)</label>
-        <div className="markdown-editor-container dark:bg-gray-800">
-          <MdEditor
+        <div className="markdown-editor-container dark:bg-gray-800" data-color-mode="light">
+          <MDEditor
             value={formData.contentCN}
-            onChange={({ text }) => handleEditorChange('contentCN', text)}
-            renderHTML={renderHTML}
-            className={`${formErrors.contentCN ? 'border-red-500' : ''}`}
-            style={{ height: '300px' }}
+            onChange={(text) => handleEditorChange('contentCN', text || '')}
             {...EDITOR_CONFIG}
+            className={`${formErrors.contentCN ? 'border-red-500' : ''}`}
           />
         </div>
         {formErrors.contentCN && (
@@ -285,7 +269,7 @@ export default function EventForm({
 
       {/* URL field */}
       <div>
-        <label className="block text-sm font-medium mb-1">Source URL</label>
+        <label className="block text-sm font-medium mb-1">Source URL (Optional)</label>
         <input
           type="url"
           value={formData.url}
@@ -293,6 +277,7 @@ export default function EventForm({
           className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
             formErrors.url ? 'border-red-500' : ''
           }`}
+          placeholder="Leave empty if no URL"
         />
         {formErrors.url && (
           <p className="mt-1 text-sm text-red-500">{formErrors.url}</p>
