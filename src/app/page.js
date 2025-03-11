@@ -8,7 +8,7 @@ import { useAccount, useSignMessage } from 'wagmi';
 import MDEditor from '@uiw/react-md-editor';
 import MarkdownIt from 'markdown-it';
 
-const API_URL = 'https://timeline-833534357674.us-central1.run.app';
+const API_URL = 'https://tl-api.3ja.com';
 // Initialize markdown parser
 const md = new MarkdownIt();
 
