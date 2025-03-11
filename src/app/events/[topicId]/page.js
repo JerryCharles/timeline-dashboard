@@ -19,7 +19,7 @@ const MDEditor = dynamic(() => import('@uiw/react-md-editor'), {
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
-const API_URL = 'https://timeline-833534357674.us-central1.run.app';
+const API_URL = 'https://tl-api.3ja.com';
 
 // Initialize markdown parser
 const mdParser = new MarkdownIt({

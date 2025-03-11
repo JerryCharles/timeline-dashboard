@@ -5,8 +5,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useSignMessage } from 'wagmi';
+import MDEditor from '@uiw/react-md-editor';
+import MarkdownIt from 'markdown-it';
 
 const API_URL = 'https://timeline-833534357674.us-central1.run.app';
+// Initialize markdown parser
+const md = new MarkdownIt();
 
 export default function Home() {
   const router = useRouter();
@@ -422,9 +426,15 @@ export default function Home() {
                   </td>
                   <td className="px-6 py-4 max-w-md">
                     <div>
-                      <div className="text-gray-900 dark:text-white line-clamp-3">{topic.summary}</div>
+                      <div 
+                        className="text-gray-900 dark:text-white line-clamp-3"
+                        dangerouslySetInnerHTML={{ __html: md.render(topic.summary || '') }}
+                      ></div>
                       <br/>
-                      <div className="text-gray-500 text-sm line-clamp-3">{topic.summaryCN}</div>
+                      <div 
+                        className="text-gray-500 text-sm line-clamp-3"
+                        dangerouslySetInnerHTML={{ __html: md.render(topic.summaryCN || '') }}
+                      ></div>
                     </div>
                   </td>
                   <td className="px-6 py-4">{new Date(topic.time).toLocaleString()}</td>
@@ -637,36 +647,34 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Summary (English)</label>
-                  <textarea
-                    value={formData.summary}
-                    onChange={(e) => {
-                      setFormData({...formData, summary: e.target.value});
-                      setFormErrors({...formErrors, summary: ''});
-                    }}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                      formErrors.summary ? 'border-red-500' : ''
-                    }`}
-                    rows={4}
-                    required
-                  />
+                  <div data-color-mode="light" className="dark:data-color-mode-dark">
+                    <MDEditor
+                      value={formData.summary}
+                      onChange={(value) => {
+                        setFormData({...formData, summary: value || ''});
+                        setFormErrors({...formErrors, summary: ''});
+                      }}
+                      height={200}
+                      className={`${formErrors.summary ? 'border border-red-500 rounded-lg' : ''}`}
+                    />
+                  </div>
                   {formErrors.summary && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.summary}</p>
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Summary (Chinese)</label>
-                  <textarea
-                    value={formData.summaryCN}
-                    onChange={(e) => {
-                      setFormData({...formData, summaryCN: e.target.value});
-                      setFormErrors({...formErrors, summaryCN: ''});
-                    }}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
-                      formErrors.summaryCN ? 'border-red-500' : ''
-                    }`}
-                    rows={4}
-                    required
-                  />
+                  <div data-color-mode="light" className="dark:data-color-mode-dark">
+                    <MDEditor
+                      value={formData.summaryCN}
+                      onChange={(value) => {
+                        setFormData({...formData, summaryCN: value || ''});
+                        setFormErrors({...formErrors, summaryCN: ''});
+                      }}
+                      height={200}
+                      className={`${formErrors.summaryCN ? 'border border-red-500 rounded-lg' : ''}`}
+                    />
+                  </div>
                   {formErrors.summaryCN && (
                     <p className="mt-1 text-sm text-red-500">{formErrors.summaryCN}</p>
                   )}
