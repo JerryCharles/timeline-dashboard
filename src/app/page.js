@@ -32,7 +32,11 @@ export default function Home() {
     titleCN: '',
     summary: '',
     summaryCN: '',
-    image: ''
+    image: '',
+    keywords: [],
+    keywordsCN: [],
+    newKeyword: '',
+    newKeywordCN: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState({});
@@ -46,6 +50,9 @@ export default function Home() {
     if (!formData.summary.trim()) errors.summary = 'Summary is required';
     if (!formData.summaryCN.trim()) errors.summaryCN = 'Chinese summary is required';
     if (formData.image && !isValidUrl(formData.image)) errors.image = 'Invalid image URL';
+    if (formData.newKeyword || formData.newKeywordCN) {
+      errors.keywords = 'Please add or clear the keyword fields before submitting';
+    }
     return errors;
   };
 
@@ -104,7 +111,11 @@ export default function Home() {
       titleCN: topic.titleCN,
       summary: topic.summary,
       summaryCN: topic.summaryCN,
-      image: topic.image
+      image: topic.image,
+      keywords: topic.keywords || [],
+      keywordsCN: topic.keywordsCN || [],
+      newKeyword: '',
+      newKeywordCN: ''
     });
     setIsEditTopicOpen(true);
   };
@@ -167,7 +178,9 @@ export default function Home() {
       formData.titleCN !== editingTopic.titleCN ||
       formData.summary !== editingTopic.summary ||
       formData.summaryCN !== editingTopic.summaryCN ||
-      formData.image !== editingTopic.image
+      formData.image !== editingTopic.image ||
+      JSON.stringify(formData.keywords) !== JSON.stringify(editingTopic.keywords || []) ||
+      JSON.stringify(formData.keywordsCN) !== JSON.stringify(editingTopic.keywordsCN || [])
     );
   };
 
@@ -196,6 +209,10 @@ export default function Home() {
         if (formData.summary !== editingTopic.summary) changedFields.summary = formData.summary;
         if (formData.summaryCN !== editingTopic.summaryCN) changedFields.summaryCN = formData.summaryCN;
         if (formData.image !== editingTopic.image) changedFields.image = formData.image;
+        if (JSON.stringify(formData.keywords) !== JSON.stringify(editingTopic.keywords || [])) {
+          changedFields.keywords = formData.keywords;
+          changedFields.keywordsCN = formData.keywordsCN;
+        }
 
         // Get current timestamp
         const message = (Date.now() + 8000).toString();
@@ -233,7 +250,11 @@ export default function Home() {
             titleCN: '',
             summary: '',
             summaryCN: '',
-            image: ''
+            image: '',
+            keywords: [],
+            keywordsCN: [],
+            newKeyword: '',
+            newKeywordCN: ''
           });
         } else {
           showNotification(data.msg || 'Failed to update topic', 'error');
@@ -265,6 +286,8 @@ export default function Home() {
               summary: formData.summary,
               summaryCN: formData.summaryCN,
               image: formData.image,
+              keywords: formData.keywords,
+              keywordsCN: formData.keywordsCN,
               relatedTopics: []
             }
           }),
@@ -280,7 +303,11 @@ export default function Home() {
             titleCN: '',
             summary: '',
             summaryCN: '',
-            image: ''
+            image: '',
+            keywords: [],
+            keywordsCN: [],
+            newKeyword: '',
+            newKeywordCN: ''
           });
         } else {
           showNotification(data.msg || 'Failed to create topic', 'error');
@@ -329,6 +356,26 @@ export default function Home() {
       }
       return null;
     }
+  };
+
+  const handleAddKeyword = () => {
+    if (formData.newKeyword && formData.newKeywordCN) {
+      setFormData({
+        ...formData,
+        keywords: [...formData.keywords, formData.newKeyword],
+        keywordsCN: [...formData.keywordsCN, formData.newKeywordCN],
+        newKeyword: '',
+        newKeywordCN: ''
+      });
+    }
+  };
+
+  const handleRemoveKeyword = (index) => {
+    setFormData({
+      ...formData,
+      keywords: formData.keywords.filter((_, i) => i !== index),
+      keywordsCN: formData.keywordsCN.filter((_, i) => i !== index)
+    });
   };
 
   if (loading) {
@@ -386,6 +433,7 @@ export default function Home() {
                 <th scope="col" className="px-6 py-3">Image</th>
                 <th scope="col" className="px-6 py-3">Title</th>
                 <th scope="col" className="px-6 py-3">Summary</th>
+                <th scope="col" className="px-6 py-3">Keywords</th>
                 <th scope="col" className="px-6 py-3">Time</th>
                 <th scope="col" className="px-6 py-3">ID</th>
                 {isConnected && <th scope="col" className="px-6 py-3">Actions</th>}
@@ -435,6 +483,20 @@ export default function Home() {
                         className="text-gray-500 text-sm line-clamp-3"
                         dangerouslySetInnerHTML={{ __html: md.render(topic.summaryCN || '') }}
                       ></div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      {topic.keywords && topic.keywords.map((keyword, index) => (
+                        <div key={index} className="flex flex-col items-center">
+                          <span className="px-2 py-1 text-xs rounded-t-lg bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border-b border-blue-200">
+                            {keyword}
+                          </span>
+                          <span className="px-2 py-1 text-xs rounded-b-lg bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-200">
+                            {topic.keywordsCN[index]}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </td>
                   <td className="px-6 py-4">{new Date(topic.time).toLocaleString()}</td>
@@ -696,6 +758,62 @@ export default function Home() {
                     <p className="mt-1 text-sm text-red-500">{formErrors.image}</p>
                   )}
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Keywords</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.keywords.map((keyword, index) => (
+                      <div key={index} className="flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1">
+                        <div className="flex flex-col">
+                          <span className="text-blue-800 dark:text-blue-300">{keyword}</span>
+                          <span className="text-blue-600 dark:text-blue-200 text-xs">{formData.keywordsCN[index]}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveKeyword(index)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={formData.newKeyword}
+                      onChange={(e) => {
+                        setFormData({...formData, newKeyword: e.target.value});
+                        setFormErrors({...formErrors, keywords: ''});
+                      }}
+                      placeholder="Keyword (English)"
+                      className={`flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
+                        formErrors.keywords ? 'border-red-500' : ''
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      value={formData.newKeywordCN}
+                      onChange={(e) => {
+                        setFormData({...formData, newKeywordCN: e.target.value});
+                        setFormErrors({...formErrors, keywords: ''});
+                      }}
+                      placeholder="Keyword (Chinese)"
+                      className={`flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 ${
+                        formErrors.keywords ? 'border-red-500' : ''
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddKeyword}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {formErrors.keywords && (
+                    <p className="mt-1 text-sm text-red-500">{formErrors.keywords}</p>
+                  )}
+                </div>
                 <div className="flex justify-center gap-2 mt-6">
                   <button
                     type="button"
@@ -708,7 +826,11 @@ export default function Home() {
                         titleCN: '',
                         summary: '',
                         summaryCN: '',
-                        image: ''
+                        image: '',
+                        keywords: [],
+                        keywordsCN: [],
+                        newKeyword: '',
+                        newKeywordCN: ''
                       });
                       setFormErrors({});
                     }}
