@@ -104,8 +104,8 @@ const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
         <thead className="text-xs bg-gray-100 dark:bg-gray-700">
           <tr>
             <th scope="col" className="px-6 py-3 w-[12%]">Time</th>
-            <th scope="col" className="px-6 py-3 w-[48%]">Content</th>
-            <th scope="col" className="px-6 py-3 w-[25%]">Labels</th>
+            <th scope="col" className="px-6 py-3 w-[55%]">Content</th>
+            <th scope="col" className="px-6 py-3 w-[18%]">Labels</th>
             <th scope="col" className="px-6 py-3 w-[7%]">Source</th>
             <th scope="col" className="px-6 py-3 w-[8%]">Actions</th>
           </tr>
