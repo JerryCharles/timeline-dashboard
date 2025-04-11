@@ -103,11 +103,11 @@ const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
       <table className="w-full text-sm text-left">
         <thead className="text-xs bg-gray-100 dark:bg-gray-700">
           <tr>
-            <th scope="col" className="px-6 py-3">Time</th>
-            <th scope="col" className="px-6 py-3">Content</th>
-            <th scope="col" className="px-6 py-3">Labels</th>
-            <th scope="col" className="px-6 py-3">Source</th>
-            <th scope="col" className="px-6 py-3">Actions</th>
+            <th scope="col" className="px-6 py-3 w-[12%]">Time</th>
+            <th scope="col" className="px-6 py-3 w-[48%]">Content</th>
+            <th scope="col" className="px-6 py-3 w-[25%]">Labels</th>
+            <th scope="col" className="px-6 py-3 w-[7%]">Source</th>
+            <th scope="col" className="px-6 py-3 w-[8%]">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -130,13 +130,13 @@ const EventTable = memo(function EventTable({ events, onEdit, onDelete }) {
                 </div>
               </td>
               <td className="px-6 py-4">
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {event.labels && event.labels.map((label, index) => (
                     <div key={index} className="flex flex-col items-center">
-                      <span className="px-2 py-1 text-xs rounded-t-lg bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border-b border-blue-200">
+                      <span className="px-2 py-1 text-xs rounded-t-lg bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border-b border-blue-200 w-full text-center">
                         {label}
                       </span>
-                      <span className="px-2 py-1 text-xs rounded-b-lg bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-200">
+                      <span className="px-2 py-1 text-xs rounded-b-lg bg-blue-50 text-blue-600 dark:bg-blue-900/10 dark:text-blue-200 w-full text-center">
                         {event.labelsCN[index]}
                       </span>
                     </div>
